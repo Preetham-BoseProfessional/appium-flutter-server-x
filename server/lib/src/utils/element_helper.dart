@@ -42,7 +42,7 @@ class ElementHelper {
 
       finder = find.descendant(of: parent.by, matching: by);
     }
-    finder = finder.hitTestable();
+    
     final FinderResult<Element> elements = finder.evaluate();
     if (evaluatePresence) {
       await waitForElementExist(FlutterElement.fromBy(finder),
