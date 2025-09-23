@@ -27,10 +27,10 @@ class GetRectHandler extends RequestHandler {
 
     Rect rect = ElementHelper.getElementBounds(element.by);
     return AppiumResponse(sessionId, {
-      "x": rect.left.toStringAsFixed(0),
-      "y": rect.top.toStringAsFixed(0),
-      "height": rect.height.toStringAsFixed(0),
-      "width": rect.width.toStringAsFixed(0)
+      "x": rect.left.round(),
+      "y": rect.top.round(),
+      "height": rect.height.round(),
+      "width": rect.width.round()
     });
   }
 }
