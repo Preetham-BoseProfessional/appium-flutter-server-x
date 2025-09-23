@@ -74,6 +74,16 @@ class ElementHelper {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
+  static Future<void> clickAt(GestureModel clickAtModel) async {
+    WidgetTester tester = _getTester();
+
+    if (clickAtModel.offset == null) {
+      throw ArgumentError("Offset coordinates are mandatory");
+    }
+    await tester.tapAt(Offset(clickAtModel.offset!.x, clickAtModel.offset!.y));
+    await pumpAndTrySettle();
+  }
+
   static Future<void> gestureDoubleClick(GestureModel doubleClickModel) async {
     await TestAsyncUtils.guard(() async {
       final String? elementId = doubleClickModel.origin?.id;
@@ -326,16 +336,26 @@ class ElementHelper {
 
   static dynamic _isElementEnabled(FlutterElement element) {
     String attribute = NATIVE_ELEMENT_ATTRIBUTES.enabled.name;
-    DiagnosticsNode? enabledProperty =
-        _getElementPropertyNode(element.by, attribute);
-    if (enabledProperty == null) {
-      //For Button type elements, onPressed will be null if the element is disabled
-      DiagnosticsNode? onPressed =
-          _getElementPropertyNode(element.by, "onPressed");
-      return (onPressed == null || onPressed.value == null) ? "false" : "true";
-    } else {
-      return enabledProperty.value.toString();
+    
+    final widget = FlutterDriver.instance.tester.widget(element.by);
+    if (widget is ButtonStyleButton) {
+      return widget.onPressed != null;
+    } else if (widget is Switch) {
+      return widget.onChanged != null;
+    } else if (widget is Slider) {
+      return widget.onChanged != null;
+    } else if (widget is TextField) {
+       return widget.enabled == null ? true : widget.enabled!;
     }
+
+    // Fallback to diagnostics
+    DiagnosticsNode? enabledProperty = _getElementPropertyNode(element.by, attribute);
+    if (enabledProperty != null && enabledProperty.value is bool) {
+      return enabledProperty.value as bool;
+    }
+
+    return false;
+    
   }
 
   static bool _isElementClickable(FlutterElement flutterElement) {
