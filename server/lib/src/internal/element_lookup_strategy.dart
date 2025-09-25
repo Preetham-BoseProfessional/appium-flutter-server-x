@@ -12,6 +12,7 @@ enum ElementLookupStrategy {
   BY_TYPE,
   BY_ICON_POINT,
   BY_ICON_NAME,
+  BY_SEMANTICS_IDENTIFIER,
   // Complex strategies
   BY_ANCESTOR,
   BY_DESCENDANT,
@@ -35,6 +36,9 @@ extension ElementLookupStrategyExtension on ElementLookupStrategy {
       case ElementLookupStrategy.BY_SEMANTICS_LABEL:
         return find.bySemanticsLabel(model.selectorString!,
             skipOffstage: false);
+      case ElementLookupStrategy.BY_SEMANTICS_IDENTIFIER:
+        return find.bySemanticsIdentifier(model.selectorString!,
+          skipOffstage: false);
       case ElementLookupStrategy.BY_TOOLTIP:
         return find.byTooltip(model.selectorString!, skipOffstage: false);
       case ElementLookupStrategy.BY_TEXT:
@@ -211,6 +215,8 @@ extension ElementLookupStrategyExtension on ElementLookupStrategy {
         return '-flutter page_object';
       case ElementLookupStrategy.BY_CUSTOM_PREDICATE:
         return '-flutter custom_predicate';
+      case ElementLookupStrategy.BY_SEMANTICS_IDENTIFIER:
+        return '-flutter semantics_identifier';
     }
   }
 }

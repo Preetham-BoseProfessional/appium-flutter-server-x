@@ -286,6 +286,28 @@ class ElementHelper {
       log('"method: $method, selector: ${model.selector}, contextId: $contextId');
     }
 
+    // Special handling of flutter key.
+    // This tries to find the semantics widget with the string same as that of the supplied selector.
+    // We want to prioritize finding by semantics identifier. Not all widgets might be set with key.
+    // Since the appium python client does not have a specific semantics identifier locator option,
+    // the -flutter key option has been repurposed.
+    if (method == ElementLookupStrategy.BY_KEY.name){
+      try {
+        log('Trying to find the element with key ${model.selector} using semantics identifier');
+        final semanticsStrategy = ElementLookupStrategy.values.firstWhere(
+            (val) => val.name == '-flutter semantics_identifier');
+        final Finder semanticsFinder = await semanticsStrategy.toFinder(model);
+
+        if (evaluatePresence) {
+          return await findElement(semanticsFinder, contextId: contextId);
+        } else {
+          return semanticsFinder;
+        }
+      } catch (e, st) {
+        log('Failed to find using semantics_identifier. Falling back to key. Error: $e \n Stacktrace: $st');
+      }
+    }
+
     // Get the strategy and create the finder
     final strategy =
         ElementLookupStrategy.values.firstWhere((val) => val.name == method);
@@ -354,7 +376,7 @@ class ElementHelper {
       return enabledProperty.value as bool;
     }
 
-    return false;
+    return true;
     
   }
 
