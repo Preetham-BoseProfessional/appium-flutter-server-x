@@ -291,6 +291,9 @@ class ElementHelper {
     // We want to prioritize finding by semantics identifier. Not all widgets might be set with key.
     // Since the appium python client does not have a specific semantics identifier locator option,
     // the -flutter key option has been repurposed.
+    // Special handling of flutter key has been added here.
+    // This tries to find the semantics widget id with the string same as that of the supplied selector.
+    // We want to prioritize finding by semantics identifier. Not all widgets might be set with key.
     if (method == ElementLookupStrategy.BY_KEY.name){
       try {
         log('Trying to find the element with key ${model.selector} using semantics identifier');
@@ -359,6 +362,9 @@ class ElementHelper {
   static dynamic _isElementEnabled(FlutterElement element) {
     String attribute = NATIVE_ELEMENT_ATTRIBUTES.enabled.name;
     
+    // Improving checking of enabled property of the element.
+    // Direct widget type ispection is preferred over diagnostics.
+    // Some widgets may not even expose the enabled state at all through diagnostics.
     final widget = FlutterDriver.instance.tester.widget(element.by);
     if (widget is ButtonStyleButton) {
       return widget.onPressed != null;
