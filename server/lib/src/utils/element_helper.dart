@@ -286,9 +286,6 @@ class ElementHelper {
       log('"method: $method, selector: ${model.selector}, contextId: $contextId');
     }
 
-    // Special handling of flutter key.
-    // This tries to find the semantics widget with the string same as that of the supplied selector.
-    // We want to prioritize finding by semantics identifier. Not all widgets might be set with key.
     // Since the appium python client does not have a specific semantics identifier locator option,
     // the -flutter key option has been repurposed.
     // Special handling of flutter key has been added here.
