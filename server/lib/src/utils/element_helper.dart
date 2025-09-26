@@ -291,6 +291,8 @@ class ElementHelper {
     // Special handling of flutter key has been added here.
     // This tries to find the semantics widget id with the string same as that of the supplied selector.
     // We want to prioritize finding by semantics identifier. Not all widgets might be set with key.
+    // If the element is not found with the semantics identifier, then we fallback to finding an element 
+    // the same key.
     if (method == ElementLookupStrategy.BY_KEY.name){
       try {
         log('Trying to find the element with key ${model.selector} using semantics identifier');
