@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:appium_flutter_server/src/handler/activate_inject_image.dart';
 import 'package:appium_flutter_server/src/handler/click.dart';
 import 'package:appium_flutter_server/src/handler/double_click.dart';
+import 'package:appium_flutter_server/src/handler/gesture/click_at.dart';
 import 'package:appium_flutter_server/src/handler/delete_session.dart';
 import 'package:appium_flutter_server/src/handler/find_element.dart';
 import 'package:appium_flutter_server/src/handler/find_elements.dart';
@@ -76,6 +77,7 @@ class FlutterServer {
     _registerPost(
         RenderTreeHandler("/session/<sessionId>/element/render_tree"));
     _registerPost(ClickHandler("/session/<sessionId>/element/<id>/click"));
+    _registerPost(ClickAtHandler("/session/<sessionId>/click_at"));
     _registerPost(
         DoubleClickHandler("/session/<sessionId>/element/<id>/double_click"));
     _registerPost(PressBackHandler("/session/<sessionId>/back"));

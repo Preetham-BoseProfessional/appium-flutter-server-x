@@ -74,6 +74,16 @@ class ElementHelper {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
+  static Future<void> clickAt(GestureModel clickAtModel) async {
+    WidgetTester tester = _getTester();
+
+    if (clickAtModel.offset == null) {
+      throw ArgumentError("Offset coordinates are mandatory");
+    }
+    await tester.tapAt(Offset(clickAtModel.offset!.x, clickAtModel.offset!.y));
+    await pumpAndTrySettle();
+  }
+
   static Future<void> gestureDoubleClick(GestureModel doubleClickModel) async {
     await TestAsyncUtils.guard(() async {
       final String? elementId = doubleClickModel.origin?.id;
@@ -276,6 +286,30 @@ class ElementHelper {
       log('"method: $method, selector: ${model.selector}, contextId: $contextId');
     }
 
+    // Since the appium python client does not have a specific semantics identifier locator option,
+    // the -flutter key option has been repurposed.
+    // Special handling of flutter key has been added here.
+    // This tries to find the semantics widget id with the string same as that of the supplied selector.
+    // We want to prioritize finding by semantics identifier. Not all widgets might be set with key.
+    // If the element is not found with the semantics identifier, then we fallback to finding an element 
+    // the same key.
+    if (method == ElementLookupStrategy.BY_KEY.name){
+      try {
+        log('Trying to find the element with key ${model.selector} using semantics identifier');
+        final semanticsStrategy = ElementLookupStrategy.values.firstWhere(
+            (val) => val.name == '-flutter semantics_identifier');
+        final Finder semanticsFinder = await semanticsStrategy.toFinder(model);
+
+        if (evaluatePresence) {
+          return await findElement(semanticsFinder, contextId: contextId);
+        } else {
+          return semanticsFinder;
+        }
+      } catch (e, st) {
+        log('Failed to find using semantics_identifier. Falling back to key. Error: $e \n Stacktrace: $st');
+      }
+    }
+
     // Get the strategy and create the finder
     final strategy =
         ElementLookupStrategy.values.firstWhere((val) => val.name == method);
@@ -326,16 +360,29 @@ class ElementHelper {
 
   static dynamic _isElementEnabled(FlutterElement element) {
     String attribute = NATIVE_ELEMENT_ATTRIBUTES.enabled.name;
-    DiagnosticsNode? enabledProperty =
-        _getElementPropertyNode(element.by, attribute);
-    if (enabledProperty == null) {
-      //For Button type elements, onPressed will be null if the element is disabled
-      DiagnosticsNode? onPressed =
-          _getElementPropertyNode(element.by, "onPressed");
-      return (onPressed == null || onPressed.value == null) ? "false" : "true";
-    } else {
-      return enabledProperty.value.toString();
+    
+    // Improving checking of enabled property of the element.
+    // Direct widget type ispection is preferred over diagnostics.
+    // Some widgets may not even expose the enabled state at all through diagnostics.
+    final widget = FlutterDriver.instance.tester.widget(element.by);
+    if (widget is ButtonStyleButton) {
+      return widget.onPressed != null;
+    } else if (widget is Switch) {
+      return widget.onChanged != null;
+    } else if (widget is Slider) {
+      return widget.onChanged != null;
+    } else if (widget is TextField) {
+       return widget.enabled == null ? true : widget.enabled!;
     }
+
+    // Fallback to diagnostics
+    DiagnosticsNode? enabledProperty = _getElementPropertyNode(element.by, attribute);
+    if (enabledProperty != null && enabledProperty.value is bool) {
+      return enabledProperty.value as bool;
+    }
+
+    return true;
+    
   }
 
   static bool _isElementClickable(FlutterElement flutterElement) {
