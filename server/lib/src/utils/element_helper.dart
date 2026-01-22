@@ -158,6 +158,7 @@ class ElementHelper {
   }
 
   static Future<String> getText(FlutterElement element) async {
+    String getElementTextRecursively(dynamic element, {Set<dynamic>? visited}) {
       visited ??= <dynamic>{};
 
       if (visited.contains(element)) {
