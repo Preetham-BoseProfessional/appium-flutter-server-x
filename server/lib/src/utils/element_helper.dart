@@ -42,7 +42,7 @@ class ElementHelper {
 
       finder = find.descendant(of: parent.by, matching: by);
     }
-    
+    finder = finder.hitTestable();
     final FinderResult<Element> elements = finder.evaluate();
     if (evaluatePresence) {
       await waitForElementExist(FlutterElement.fromBy(finder),
@@ -72,16 +72,6 @@ class ElementHelper {
     WidgetTester tester = _getTester();
     await tester.enterText(element.by, text);
     await tester.pump(const Duration(milliseconds: 400));
-  }
-
-  static Future<void> clickAt(GestureModel clickAtModel) async {
-    WidgetTester tester = _getTester();
-
-    if (clickAtModel.offset == null) {
-      throw ArgumentError("Offset coordinates are mandatory");
-    }
-    await tester.tapAt(Offset(clickAtModel.offset!.x, clickAtModel.offset!.y));
-    await pumpAndTrySettle();
   }
 
   static Future<void> gestureDoubleClick(GestureModel doubleClickModel) async {
@@ -168,43 +158,34 @@ class ElementHelper {
   }
 
   static Future<String> getText(FlutterElement element) async {
-    String getElementTextRecursively(dynamic element, {Set<dynamic>? visited}) {
-      visited ??= <dynamic>{};
+    String extractText(Element el) {
+      final buffer = StringBuffer();
 
-      if (visited.contains(element)) {
-        return '';
-      }
-      visited.add(element);
-      final StringBuffer buffer = StringBuffer();
+      try {
+        final widget = el.widget;
+        if (widget is Text) {
+          buffer.writeln(widget.data ?? widget.textSpan?.toPlainText() ?? "");
+        } else if (widget is RichText) {
+          buffer.writeln(widget.text.toPlainText());
+        } else if (widget is EditableText) {
+          buffer.writeln(widget.controller.text);
+        } else if (widget is TextField) {
+         buffer.write(widget.controller?.value.text); 
+        } 
+      } catch (_) {}
 
-      final widget = element.widget;
-      if (widget is Text) {
-        if (widget.data != null) {
-          buffer.write(widget.data);
-        } else if (widget.textSpan != null) {
-          buffer.write(widget.textSpan!.toPlainText());
-        }
-      } else if (widget is RichText) {
-        buffer.write(widget.text.toPlainText());
-      } else if (widget is EditableText) {
-        buffer.write(widget.controller.text);
-      } else if (widget is TextField) {
-        buffer.write(widget.controller?.value.text);
-      } else if (widget is ButtonStyleButton) {
-        buffer.write(getElementTextRecursively(widget.child, visited: visited));
-      }
-
-      if (element is RenderObjectElement) {
-        element.visitChildren((child) {
-          final childText = getElementTextRecursively(child, visited: visited);
-          buffer.write(childText);
-        });
-      }
+      el.visitChildren((child) {
+        buffer.write(extractText(child));
+      });
 
       return buffer.toString();
     }
 
-    return getElementTextRecursively(element.by.evaluate().first);
+    final evaluated = element.by.evaluate();
+    if (evaluated.isEmpty) return "";
+
+    final Element root = evaluated.first;
+    return extractText(root).trim();
   }
 
   static Future<dynamic> getAttribute(
@@ -286,30 +267,6 @@ class ElementHelper {
       log('"method: $method, selector: ${model.selector}, contextId: $contextId');
     }
 
-    // Since the appium python client does not have a specific semantics identifier locator option,
-    // the -flutter key option has been repurposed.
-    // Special handling of flutter key has been added here.
-    // This tries to find the semantics widget id with the string same as that of the supplied selector.
-    // We want to prioritize finding by semantics identifier. Not all widgets might be set with key.
-    // If the element is not found with the semantics identifier, then we fallback to finding an element 
-    // the same key.
-    if (method == ElementLookupStrategy.BY_KEY.name){
-      try {
-        log('Trying to find the element with key ${model.selector} using semantics identifier');
-        final semanticsStrategy = ElementLookupStrategy.values.firstWhere(
-            (val) => val.name == '-flutter semantics_identifier');
-        final Finder semanticsFinder = await semanticsStrategy.toFinder(model);
-
-        if (evaluatePresence) {
-          return await findElement(semanticsFinder, contextId: contextId);
-        } else {
-          return semanticsFinder;
-        }
-      } catch (e, st) {
-        log('Failed to find using semantics_identifier. Falling back to key. Error: $e \n Stacktrace: $st');
-      }
-    }
-
     // Get the strategy and create the finder
     final strategy =
         ElementLookupStrategy.values.firstWhere((val) => val.name == method);
@@ -360,29 +317,16 @@ class ElementHelper {
 
   static dynamic _isElementEnabled(FlutterElement element) {
     String attribute = NATIVE_ELEMENT_ATTRIBUTES.enabled.name;
-    
-    // Improving checking of enabled property of the element.
-    // Direct widget type ispection is preferred over diagnostics.
-    // Some widgets may not even expose the enabled state at all through diagnostics.
-    final widget = FlutterDriver.instance.tester.widget(element.by);
-    if (widget is ButtonStyleButton) {
-      return widget.onPressed != null;
-    } else if (widget is Switch) {
-      return widget.onChanged != null;
-    } else if (widget is Slider) {
-      return widget.onChanged != null;
-    } else if (widget is TextField) {
-       return widget.enabled == null ? true : widget.enabled!;
+    DiagnosticsNode? enabledProperty =
+        _getElementPropertyNode(element.by, attribute);
+    if (enabledProperty == null) {
+      //For Button type elements, onPressed will be null if the element is disabled
+      DiagnosticsNode? onPressed =
+          _getElementPropertyNode(element.by, "onPressed");
+      return (onPressed == null || onPressed.value == null) ? "false" : "true";
+    } else {
+      return enabledProperty.value.toString();
     }
-
-    // Fallback to diagnostics
-    DiagnosticsNode? enabledProperty = _getElementPropertyNode(element.by, attribute);
-    if (enabledProperty != null && enabledProperty.value is bool) {
-      return enabledProperty.value as bool;
-    }
-
-    return true;
-    
   }
 
   static bool _isElementClickable(FlutterElement flutterElement) {
@@ -544,7 +488,6 @@ class ElementHelper {
         ? await locateElement(scrollView)
         : find.byType(Scrollable);
     Finder elementToFind = await locateElement(finder, evaluatePresence: false);
-
     await waitForElementExist(FlutterElement.fromBy(scrollViewElement),
         timeout: Duration(
             milliseconds: FlutterDriver.instance.settings
@@ -560,7 +503,6 @@ class ElementHelper {
     } else {
       direction = scrollDirection;
     }
-
     return TestAsyncUtils.guard<Finder>(() async {
       Offset moveStep;
       switch (direction) {
@@ -573,11 +515,9 @@ class ElementHelper {
         case AxisDirection.right:
           moveStep = Offset(-delta!, 0);
       }
-
-      scrollViewElement = scrollViewElement.hitTestable().first;
+      scrollViewElement = scrollViewElement.first;
       dragDuration ??= const Duration(milliseconds: 100);
       settleBetweenScrollsTimeout ??= const Duration(seconds: 5);
-
       var iterationsLeft = maxScrolls!;
       while (iterationsLeft > 0 &&
           elementToFind.hitTestable().evaluate().isEmpty) {
@@ -603,20 +543,22 @@ class ElementHelper {
     EnginePhase phase = EnginePhase.sendSemanticsUpdate,
     Duration timeout = const Duration(milliseconds: 200),
   }) async {
-    try {
-      WidgetTester tester = _getTester();
-      await tester.pumpAndSettle(
-        duration,
-        phase,
-        timeout,
-      );
-    } on FlutterError catch (err) {
-      if (err.message == 'pumpAndSettle timed out') {
-        //This method ignores pumpAndSettle timeouts on purpose
-      } else {
-        rethrow;
+    return TestAsyncUtils.guard(() async {
+      try {
+        WidgetTester tester = _getTester();
+        await tester.pumpAndSettle(
+          duration,
+          phase,
+          timeout,
+        );
+      } on FlutterError catch (err) {
+        if (err.message == 'pumpAndSettle timed out') {
+          //This method ignores pumpAndSettle timeouts on purpose
+        } else {
+          rethrow;
+        }
       }
-    }
+    });
   }
 
   static Future<Map<String, dynamic>> _serializeElement(
