@@ -158,43 +158,34 @@ class ElementHelper {
   }
 
   static Future<String> getText(FlutterElement element) async {
-    String getElementTextRecursively(dynamic element, {Set<dynamic>? visited}) {
-      visited ??= <dynamic>{};
+    String extractText(Element el) {
+      final buffer = StringBuffer();
 
-      if (visited.contains(element)) {
-        return '';
-      }
-      visited.add(element);
-      final StringBuffer buffer = StringBuffer();
+      try {
+        final widget = el.widget;
+        if (widget is Text) {
+          buffer.writeln(widget.data ?? widget.textSpan?.toPlainText() ?? "");
+        } else if (widget is RichText) {
+          buffer.writeln(widget.text.toPlainText());
+        } else if (widget is EditableText) {
+          buffer.writeln(widget.controller.text);
+        } else if (widget is TextField) {
+         buffer.write(widget.controller?.value.text); 
+        } 
+      } catch (_) {}
 
-      final widget = element.widget;
-      if (widget is Text) {
-        if (widget.data != null) {
-          buffer.write(widget.data);
-        } else if (widget.textSpan != null) {
-          buffer.write(widget.textSpan!.toPlainText());
-        }
-      } else if (widget is RichText) {
-        buffer.write(widget.text.toPlainText());
-      } else if (widget is EditableText) {
-        buffer.write(widget.controller.text);
-      } else if (widget is TextField) {
-        buffer.write(widget.controller?.value.text);
-      } else if (widget is ButtonStyleButton) {
-        buffer.write(getElementTextRecursively(widget.child, visited: visited));
-      }
-
-      if (element is RenderObjectElement) {
-        element.visitChildren((child) {
-          final childText = getElementTextRecursively(child, visited: visited);
-          buffer.write(childText);
-        });
-      }
+      el.visitChildren((child) {
+        buffer.write(extractText(child));
+      });
 
       return buffer.toString();
     }
 
-    return getElementTextRecursively(element.by.evaluate().first);
+    final evaluated = element.by.evaluate();
+    if (evaluated.isEmpty) return "";
+
+    final Element root = evaluated.first;
+    return extractText(root).trim();
   }
 
   static Future<dynamic> getAttribute(
@@ -497,7 +488,6 @@ class ElementHelper {
         ? await locateElement(scrollView)
         : find.byType(Scrollable);
     Finder elementToFind = await locateElement(finder, evaluatePresence: false);
-
     await waitForElementExist(FlutterElement.fromBy(scrollViewElement),
         timeout: Duration(
             milliseconds: FlutterDriver.instance.settings
@@ -513,7 +503,6 @@ class ElementHelper {
     } else {
       direction = scrollDirection;
     }
-
     return TestAsyncUtils.guard<Finder>(() async {
       Offset moveStep;
       switch (direction) {
@@ -526,11 +515,9 @@ class ElementHelper {
         case AxisDirection.right:
           moveStep = Offset(-delta!, 0);
       }
-
-      scrollViewElement = scrollViewElement.hitTestable().first;
+      scrollViewElement = scrollViewElement.first;
       dragDuration ??= const Duration(milliseconds: 100);
       settleBetweenScrollsTimeout ??= const Duration(seconds: 5);
-
       var iterationsLeft = maxScrolls!;
       while (iterationsLeft > 0 &&
           elementToFind.hitTestable().evaluate().isEmpty) {
