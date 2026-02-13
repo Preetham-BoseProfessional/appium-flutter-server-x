@@ -363,7 +363,9 @@ class ElementHelper {
     } else if (widget is Slider) {
       return widget.onChanged != null;
     } else if (widget is TextField) {
-       return widget.enabled == null ? true : widget.enabled!;
+      return widget.enabled == null ? true : widget.enabled!;
+    } else if (widget is Semantics) {
+      return widget.properties.enabled == null ? true : widget.properties.enabled!;
     }
 
     // Fallback to diagnostics
