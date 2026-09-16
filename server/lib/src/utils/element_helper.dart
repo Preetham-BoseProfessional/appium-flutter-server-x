@@ -15,10 +15,49 @@ import 'package:appium_flutter_server/src/utils/ui_serialization/element_seriali
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 enum NATIVE_ELEMENT_ATTRIBUTES { enabled, displayed, clickable }
+
+final Map<String, LogicalKeyboardKey> _keyMapping = {
+    'escape': LogicalKeyboardKey.escape,
+    'esc': LogicalKeyboardKey.escape,
+    'enter': LogicalKeyboardKey.enter,
+    'return': LogicalKeyboardKey.enter,
+    'tab': LogicalKeyboardKey.tab,
+    'backspace': LogicalKeyboardKey.backspace,
+    'delete': LogicalKeyboardKey.delete,
+    'del': LogicalKeyboardKey.delete,
+    'space': LogicalKeyboardKey.space,
+    'arrowdown': LogicalKeyboardKey.arrowDown,
+    'down': LogicalKeyboardKey.arrowDown,
+    'arrowup': LogicalKeyboardKey.arrowUp,
+    'up': LogicalKeyboardKey.arrowUp,
+    'arrowleft': LogicalKeyboardKey.arrowLeft,
+    'left': LogicalKeyboardKey.arrowLeft,
+    'arrowright': LogicalKeyboardKey.arrowRight,
+    'right': LogicalKeyboardKey.arrowRight,
+    'home': LogicalKeyboardKey.home,
+    'end': LogicalKeyboardKey.end,
+    'pageup': LogicalKeyboardKey.pageUp,
+    'pagedown': LogicalKeyboardKey.pageDown,
+    'select': LogicalKeyboardKey.select,
+    'f1': LogicalKeyboardKey.f1,
+    'f2': LogicalKeyboardKey.f2,
+    'f3': LogicalKeyboardKey.f3,
+    'f4': LogicalKeyboardKey.f4,
+    'f5': LogicalKeyboardKey.f5,
+    'f6': LogicalKeyboardKey.f6,
+    'f7': LogicalKeyboardKey.f7,
+    'f8': LogicalKeyboardKey.f8,
+    'f9': LogicalKeyboardKey.f9,
+    'f10': LogicalKeyboardKey.f10,
+    'f11': LogicalKeyboardKey.f11,
+    'f12': LogicalKeyboardKey.f12,
+  };
+
 
 typedef WaitPredicate = Future<bool> Function();
 
@@ -69,9 +108,23 @@ class ElementHelper {
   }
 
   static Future<void> setText(FlutterElement element, String text) async {
-    WidgetTester tester = _getTester();
-    await tester.enterText(element.by, text);
-    await tester.pump(const Duration(milliseconds: 400));
+  WidgetTester tester = _getTester();
+
+  if (text.startsWith('<') && text.endsWith('>') && text.length > 2) {
+    final keyName = text.substring(1, text.length - 1).trim().toLowerCase();
+    final logicalKey = _keyMapping[keyName];
+
+    if (logicalKey != null) {
+      await tester.tap(element.by);
+      await pumpAndTrySettle();
+      await tester.sendKeyEvent(logicalKey);
+      await pumpAndTrySettle();
+      return;
+    }
+  }
+
+  await tester.enterText(element.by, text);
+  await tester.pump(const Duration(milliseconds: 400));
   }
 
   static Future<void> clickAt(GestureModel clickAtModel) async {
