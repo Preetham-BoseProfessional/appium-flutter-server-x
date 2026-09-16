@@ -15,51 +15,12 @@ import 'package:appium_flutter_server/src/utils/ui_serialization/element_seriali
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 enum NATIVE_ELEMENT_ATTRIBUTES { enabled, displayed, clickable }
 
 typedef WaitPredicate = Future<bool> Function();
-
-final Map<String, LogicalKeyboardKey> _keyMapping = {
-    'escape': LogicalKeyboardKey.escape,
-    'esc': LogicalKeyboardKey.escape,
-    'enter': LogicalKeyboardKey.enter,
-    'return': LogicalKeyboardKey.enter,
-    'tab': LogicalKeyboardKey.tab,
-    'backspace': LogicalKeyboardKey.backspace,
-    'delete': LogicalKeyboardKey.delete,
-    'del': LogicalKeyboardKey.delete,
-    'space': LogicalKeyboardKey.space,
-    'arrowdown': LogicalKeyboardKey.arrowDown,
-    'down': LogicalKeyboardKey.arrowDown,
-    'arrowup': LogicalKeyboardKey.arrowUp,
-    'up': LogicalKeyboardKey.arrowUp,
-    'arrowleft': LogicalKeyboardKey.arrowLeft,
-    'left': LogicalKeyboardKey.arrowLeft,
-    'arrowright': LogicalKeyboardKey.arrowRight,
-    'right': LogicalKeyboardKey.arrowRight,
-    'home': LogicalKeyboardKey.home,
-    'end': LogicalKeyboardKey.end,
-    'pageup': LogicalKeyboardKey.pageUp,
-    'pagedown': LogicalKeyboardKey.pageDown,
-    'select': LogicalKeyboardKey.select,
-    'f1': LogicalKeyboardKey.f1,
-    'f2': LogicalKeyboardKey.f2,
-    'f3': LogicalKeyboardKey.f3,
-    'f4': LogicalKeyboardKey.f4,
-    'f5': LogicalKeyboardKey.f5,
-    'f6': LogicalKeyboardKey.f6,
-    'f7': LogicalKeyboardKey.f7,
-    'f8': LogicalKeyboardKey.f8,
-    'f9': LogicalKeyboardKey.f9,
-    'f10': LogicalKeyboardKey.f10,
-    'f11': LogicalKeyboardKey.f11,
-    'f12': LogicalKeyboardKey.f12,
-  };
-
 
 class ElementHelper {
   static Future<Finder> findElement(Finder by, {String? contextId}) async {
@@ -81,7 +42,7 @@ class ElementHelper {
 
       finder = find.descendant(of: parent.by, matching: by);
     }
-
+    
     final FinderResult<Element> elements = finder.evaluate();
     if (evaluatePresence) {
       await waitForElementExist(FlutterElement.fromBy(finder),
@@ -109,22 +70,6 @@ class ElementHelper {
 
   static Future<void> setText(FlutterElement element, String text) async {
     WidgetTester tester = _getTester();
-
-    if (text.startsWith('<') && text.endsWith('>') && text.length > 2) {
-      final keyName = text.substring(1, text.length - 1).trim().toLowerCase();
-      final logicalKey = _keyMapping[keyName];
-
-      if (logicalKey == null) {
-        throw FlutterAutomationException("Unsupported key name: '$keyName'");
-      }
-
-      await tester.tap(element.by);
-      await pumpAndTrySettle();
-      await tester.sendKeyEvent(logicalKey);
-      await pumpAndTrySettle();
-      return;
-    }
-
     await tester.enterText(element.by, text);
     await tester.pump(const Duration(milliseconds: 400));
   }
@@ -221,7 +166,6 @@ class ElementHelper {
       }
     });
   }
-
   static Future<String> getText(FlutterElement element) async {
     String extractText(Element el) {
       final buffer = StringBuffer();
@@ -236,8 +180,8 @@ class ElementHelper {
         } else if (widget is EditableText) {
           buffer.writeln(widget.controller.text);
         } else if (widget is TextField) {
-          buffer.write(widget.controller?.value.text);
-        }
+         buffer.write(widget.controller?.value.text); 
+        } 
       } catch (_) {}
 
       el.visitChildren((child) {
@@ -263,86 +207,18 @@ class ElementHelper {
     } else if (NATIVE_ELEMENT_ATTRIBUTES.clickable.name == attribute) {
       return _isElementClickable(element);
     } else {
-      final widget = FlutterDriver.instance.tester.widget(element.by);
-      log('widget is $widget');
-
-      // Custom handling for SingleChildRenderObjectElement
-      if (widget is SingleChildRenderObjectElement) {
-        // Get the configuration (the widget property of the element)
-        final config = (widget as SingleChildRenderObjectElement).widget;
-        if (config is SingleChildRenderObjectWidget) {
-          log('Inside if block for SingleChildRenderObjectWidget');
-          final Widget? child = config.child;
-          if (child != null) {
-            log('Inside if block for child of SingleChildRenderObjectWidget. The child is $child');
-            List<DiagnosticsNode> childNodes =
-                child.toDiagnosticsNode().getProperties();
-            List<DiagnosticsNode> data = List<DiagnosticsNode>.from(childNodes);
-            log('The child nodes are $childNodes');
-            log('The data is $data');
-            if (attribute == "all") {
-              Map<String, dynamic> values = {};
-              for (DiagnosticsNode node in data) {
-                values[node.name ?? "unknown"] = node.value?.toString();
-              }
-              return values;
-            } else {
-              try {
-                return data
-                    .firstWhere((node) => node.name == attribute)
-                    .value
-                    ?.toString();
-              } catch (err) {
-                log(err);
-                return null;
-              }
-            }
-          }
-        }
-        // No child or not a SingleChildRenderObjectWidget, fallback to default logic below
-      }
-
-      // Custom handling for Semantics widget
-      if (widget is Semantics) {
-        log('Inside if block for Semantics widget');
-        log('Semantics enabled ${SemanticsBinding.instance.semanticsEnabled}');
-        final properties = widget.properties;
-        log('properties of Semantics widget are ${properties.toString()}');
-        final diagnostics = properties.toDiagnosticsNode().getProperties();
-        List<DiagnosticsNode> data = List<DiagnosticsNode>.from(diagnostics);
-        if (attribute == "all") {
-          Map<String, dynamic> values = {};
-          for (DiagnosticsNode node in data) {
-            values[node.name ?? "unknown"] = node.value?.toString();
-          }
-          return values;
-        } else {
-          try {
-            return data
-                .firstWhere((node) => node.name == attribute)
-                .value
-                ?.toString();
-          } catch (err) {
-            log(err);
-            return null;
-          }
-        }
-      }
-
       List<DiagnosticsNode> nodes = FlutterDriver.instance.tester
           .widget(element.by)
           .toDiagnosticsNode()
           .getProperties();
       List<DiagnosticsNode> data = [];
       try {
-        data = List<DiagnosticsNode>.from(
-          FlutterDriver.instance.tester
-              .getSemantics(element.by)
-              .toDiagnosticsNode()
-              .getChildren()
-              .first
-              .getProperties(),
-        );
+        data = FlutterDriver.instance.tester
+            .getSemantics(element.by)
+            .toDiagnosticsNode()
+            .getChildren()
+            .first
+            .getProperties();
         FlutterDriver.instance.tester
             .getSemantics(element.by)
             .getSemanticsData()
@@ -363,12 +239,8 @@ class ElementHelper {
       log(data);
       try {
         if (attribute == "all") {
-          log('Inside all');
-          log('The data is $data');
           Map<String, dynamic> values = {};
           for (DiagnosticsNode node in data) {
-            log('node name ${node.name.toString()}');
-            log('node value ${node.value.toString()}');
             log("${node.name.toString()} -> ${node.value.toString()}");
             var value = node.name.toString();
             values[value] = node.value.toString();
@@ -410,13 +282,13 @@ class ElementHelper {
     // Special handling of flutter key has been added here.
     // This tries to find the semantics widget id with the string same as that of the supplied selector.
     // We want to prioritize finding by semantics identifier. Not all widgets might be set with key.
-    // If the element is not found with the semantics identifier, then we fallback to finding an element
+    // If the element is not found with the semantics identifier, then we fallback to finding an element 
     // the same key.
-    if (method == ElementLookupStrategy.BY_KEY.name) {
+    if (method == ElementLookupStrategy.BY_KEY.name){
       try {
         log('Trying to find the element with key ${model.selector} using semantics identifier');
-        final semanticsStrategy = ElementLookupStrategy.values
-            .firstWhere((val) => val.name == '-flutter semantics_identifier');
+        final semanticsStrategy = ElementLookupStrategy.values.firstWhere(
+            (val) => val.name == '-flutter semantics_identifier');
         final Finder semanticsFinder = await semanticsStrategy.toFinder(model);
 
         if (evaluatePresence) {
@@ -479,7 +351,7 @@ class ElementHelper {
 
   static dynamic _isElementEnabled(FlutterElement element) {
     String attribute = NATIVE_ELEMENT_ATTRIBUTES.enabled.name;
-
+    
     // Improving checking of enabled property of the element.
     // Direct widget type ispection is preferred over diagnostics.
     // Some widgets may not even expose the enabled state at all through diagnostics.
@@ -493,19 +365,17 @@ class ElementHelper {
     } else if (widget is TextField) {
       return widget.enabled == null ? true : widget.enabled!;
     } else if (widget is Semantics) {
-      return widget.properties.enabled == null
-          ? true
-          : widget.properties.enabled!;
+      return widget.properties.enabled == null ? true : widget.properties.enabled!;
     }
 
     // Fallback to diagnostics
-    DiagnosticsNode? enabledProperty =
-        _getElementPropertyNode(element.by, attribute);
+    DiagnosticsNode? enabledProperty = _getElementPropertyNode(element.by, attribute);
     if (enabledProperty != null && enabledProperty.value is bool) {
       return enabledProperty.value as bool;
     }
 
     return true;
+    
   }
 
   static bool _isElementClickable(FlutterElement flutterElement) {
