@@ -114,6 +114,12 @@ class ElementHelper {
     final keyName = text.substring(1, text.length - 1).trim().toLowerCase();
     final logicalKey = _keyMapping[keyName];
 
+    if (keyName == 'textbox_done'){
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await pumpAndTrySettle();
+      return;
+    }
+
     if (logicalKey != null) {
       await tester.tap(element.by);
       await pumpAndTrySettle();
