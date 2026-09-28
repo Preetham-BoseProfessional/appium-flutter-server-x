@@ -116,6 +116,7 @@ class ElementHelper {
 
     if (keyName == 'textbox_done'){
       await tester.testTextInput.receiveAction(TextInputAction.done);
+      await pumpAndTrySettle();
       return;
     }
 
