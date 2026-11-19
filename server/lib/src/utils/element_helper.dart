@@ -260,7 +260,12 @@ class ElementHelper {
   static Future<dynamic> getAttribute(
       FlutterElement element, String attribute) async {
     if (NATIVE_ELEMENT_ATTRIBUTES.displayed.name == attribute) {
-      return element.by.evaluate().isNotEmpty;
+      try {
+        return element.by.evaluate().isNotEmpty;
+      } catch (e, stackTrace) {
+        log("⚠️ Element visibility check failed: $e\nStackTrace: $stackTrace");
+        return false;
+      }
     } else if (NATIVE_ELEMENT_ATTRIBUTES.enabled.name == attribute) {
       return _isElementEnabled(element);
     } else if (NATIVE_ELEMENT_ATTRIBUTES.clickable.name == attribute) {
